@@ -192,8 +192,6 @@ class mod_customcert_edit_form extends moodleform {
         $mform->addRule('pageheight_' . $page->id, null, 'required', null, 'client');
         $mform->addHelpButton('pageheight_' . $page->id, 'height', 'customcert');
 
-        $mform->addElement('submit', 'downloadgrid_' . $page->id, get_string('downloadgrid', 'customcert'));
-
         $group = array();
         $group[] = $mform->createElement('select', 'element_' . $page->id, '', customcert_get_elements());
         $group[] = $mform->createElement('submit', 'addelement_' . $page->id, get_string('addelement', 'customcert'));
@@ -244,8 +242,12 @@ class mod_customcert_edit_form extends moodleform {
                 }
                 $table->data[] = $row;
             }
+            // Create link to order the elements.
+            $link = html_writer::link(new moodle_url('/mod/customcert/rearrange.php', array('id' => $page->id)),
+                get_string('rearrangeelements', 'customcert'));
             // Add the table to the form.
-            $mform->addElement('static', 'elements_' . $page->id, get_string('elements', 'customcert'), html_writer::table($table));
+            $mform->addElement('static', 'elements_' . $page->id, get_string('elements', 'customcert'), html_writer::table($table)
+                . html_writer::tag( 'div', $link, array('style' => 'text-align:right')));
             $mform->addHelpButton('elements_' . $page->id, 'elements', 'customcert');
         }
 

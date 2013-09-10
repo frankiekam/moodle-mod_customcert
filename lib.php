@@ -272,6 +272,42 @@ function customcert_user_complete($course, $user, $mod, $customcert) {
 }
 
 /**
+ * Serves certificate issues and other files.
+ *
+ * @param stdClass $course
+ * @param stdClass $cm
+ * @param context $context
+ * @param string $filearea
+ * @param array $args
+ * @param bool $forcedownload
+ * @return bool|nothing false if file not found, does not return anything if found - just send the file
+ */
+function customcert_pluginfile($course, $cm, $context, $filearea, $args, $forcedownload) {
+    global $CFG;
+
+    require_once($CFG->libdir . '/filelib.php');
+
+    // We are positioning the elements.
+    if ($filearea === 'image') {
+        if ($context->contextlevel == CONTEXT_MODULE) {
+            require_login($course, false, $cm);
+        } else if ($context->contextlevel == CONTEXT_SYSTEM && !has_capability('mod/certificate:manage', $context)) {
+            return false;
+        }
+
+        $relativepath = implode('/', $args);
+        $fullpath = '/' . $context->id . '/mod_customcert/image/' . $relativepath;
+
+        $fs = get_file_storage();
+        if (!$file = $fs->get_file_by_hash(sha1($fullpath)) or $file->is_directory()) {
+            return false;
+        }
+
+        send_stored_file($file, 0, 0, $forcedownload);
+    }
+}
+
+/**
  * @uses FEATURE_GROUPS
  * @uses FEATURE_GROUPINGS
  * @uses FEATURE_GROUPMEMBERSONLY
@@ -322,7 +358,7 @@ function customcert_get_post_actions() {
 /**
  * Function to be run periodically according to the moodle cron.
  */
-function customcert_cron () {
+function customcert_cron() {
     return true;
 }
 
@@ -784,82 +820,6 @@ function customcert_generate_code() {
     }
 
     return $code;
-}
-
-/**
- * Generate the grid PDF to show the layout of the PDF.
- *
- * @param int $pageid the customcert page
- */
-function customcert_generate_grid_pdf($pageid) {
-    global $CFG, $DB;
-
-    require_once($CFG->libdir . '/pdflib.php');
-
-    // Get the page.
-    $page = $DB->get_record('customcert_pages', array('id' => $pageid), '*', MUST_EXIST);
-
-    // Set the PDF name.
-    $pdfname = get_string('gridpdfname', 'customcert', $page->id);
-
-    // Create the pdf object.
-    $pdf = new pdf();
-    $pdf->setPrintHeader(false);
-    $pdf->setPrintFooter(false);
-    $pdf->SetTitle($pdfname);
-    $pdf->SetMargins(0, 0);
-    $pdf->SetAutoPageBreak(true, 0);
-
-    // Add the page to the PDF.
-    if ($page->width > $page->height) {
-        $orientation = 'L';
-    } else {
-        $orientation = 'P';
-    }
-    $pdf->AddPage($orientation, array($page->width, $page->height));
-
-    // The cell width.
-    $cellwidth = 10;
-    $cellheight = 10;
-
-    // The increments we want to go up in.
-    $inc = 20;
-    $decpos = 4;
-
-    // Draw first lines before we increment from here.
-    $pdf->Line(($inc / 2) + 2, 0, ($inc / 2) + 2, $page->height);
-    $pdf->Line(0, ($inc / 2), $page->width, ($inc / 2));
-
-    // Now we want to start drawing the lines to make the grid.
-    // Draw the horizontal lines.
-    for ($h = $inc; $h <= $page->height; $h += $inc) {
-        // Dirty hack cause the printer keeps cutting off characters
-        // near the end of the page for some BS reason.
-        if (strlen($h) <= 2) {
-            $lmargin = 5;
-        } else {
-            $lmargin = 4;
-        }
-        // Write the distance we are at.
-        $pdf->writeHTMLCell($cellwidth, $cellheight, $lmargin, $h - $decpos, $h);
-
-        // Get the location we are going to draw the line and then draw it.
-        $hline = $h + ($inc / 2);
-        $pdf->Line(0, $hline, $page->width, $hline);
-    }
-
-    // Draw the vertical lines.
-    for ($w = $inc; $w <= $page->width; $w += $inc) {
-        // Write the distance we are at.
-        $pdf->writeHTMLCell($cellwidth, $cellheight, $w - $decpos, 3, $w);
-
-        // Get the location we are going to draw the line and then draw it.
-        $wline = $w + ($inc / 2);
-        $pdf->Line($wline, 0, $wline, $page->height);
-    }
-
-    $pdf->Output($pdfname . '.pdf', 'D');
-    exit();
 }
 
 /**
